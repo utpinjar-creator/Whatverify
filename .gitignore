@@ -1,0 +1,14 @@
+# See https://github.com/github/gitignore for templates
+*.pyc
+__pycache__/
+.env
+.DS_Store
+node_modules/
+dist/
+build/
+.vscode/
+.idea/
+*.log
+*.sqlite3
+*.db
+coverage/

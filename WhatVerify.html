@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>WhatDigital – Internal Review Dashboard</title>
+  <style>
+    :root{
+      /* === Brand palette (tweak these to match whatdigital.eu exactly) === */
+      --brand-teal:#0e7c7b;       /* primary */
+      --brand-teal-700:#0b5f5e;   /* darker for sidebar */
+      --accent-red:#e63946;       /* alerts/highlights */
+      /* === UI neutrals === */
+      --bg:#f6f7f9;
+      --card:#ffffff;
+      --text:#111827;
+      --muted:#6b7280;
+      --border:#e5e7eb;
+      --ok:#16a34a;
+      --warn:#f59e0b;
+      --bad:var(--accent-red);
+      --shadow: 0 10px 20px rgba(0,0,0,.06), 0 2px 6px rgba(0,0,0,.08);
+      --radius: 16px;
+    }
+
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0; background:var(--bg); color:var(--text);
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+      line-height:1.4;
+    }
+
+    /* ===== Layout ===== */
+    .app{display:grid; grid-template-columns: 280px 1fr; min-height:100vh}
+
+    /* Sidebar */
+    .sidebar{background: linear-gradient(180deg, var(--brand-teal-700), #094948); color:#ecfeff; padding:20px 16px; position:sticky; top:0; height:100vh; overflow:auto}
+    .brand{display:flex; align-items:center; gap:10px; margin-bottom:18px}
+    .logo{width:34px; height:34px; border-radius:10px; display:grid; place-items:center; background:var(--card); color:var(--brand-teal-700); font-weight:800}
+    .brand h1{font-size:18px; letter-spacing:.3px; margin:0}
+    .subtitle{font-size:12px; color:#c8f6f2; margin-top:2px}
+
+    .group{margin-top:22px}
+    .group-title{font-size:12px; text-transform:uppercase; letter-spacing:.12em; color:#b6ece8; margin:0 10px 10px}
+    .nav{display:flex; flex-direction:column; gap:6px}
+    .nav button{all:unset; display:flex; align-items:center; gap:10px; padding:10px 12px; border-radius:12px; cursor:pointer; color:#e6fffb; border:1px solid transparent}
+    .nav button:hover{background:rgba(255,255,255,.06); border-color:rgba(255,255,255,.1)}
+    .nav button.active{background:#0f6e6c; border-color:#16807e}
+    .nav .dot{width:8px; height:8px; border-radius:999px; background:#b6ece8}
+
+    /* Topbar */
+    .topbar{display:flex; align-items:center; justify-content:space-between; padding:16px 22px; position:sticky; top:0; z-index:5}
+    .crumb{font-size:13px; color:var(--muted)}
+    .actions{display:flex; gap:10px}
+    .chip{display:inline-flex; gap:8px; align-items:center; padding:8px 12px; border-radius:999px; border:1px solid var(--border); background:var(--card); box-shadow:var(--shadow)}
+    .chip input{border:none; outline:none}
+    .btn{border:none; background:var(--brand-teal); color:white; padding:10px 14px; border-radius:12px; cursor:pointer; box-shadow:var(--shadow); font-weight:600}
+    .btn.secondary{background:#0f766e10; color:var(--brand-teal); border:1px solid #0f766e33}
+
+    /* Main content */
+    .main{padding:0 22px 40px}
+
+    .section-switch{display:flex; gap:10px; flex-wrap:wrap; margin:6px 0 16px}
+    .pill{border:1px solid var(--border); background:var(--card); padding:10px 14px; border-radius:999px; cursor:pointer}
+    .pill.active{background:var(--brand-teal); color:white; border-color:transparent}
+
+    .cards{display:grid; grid-template-columns: repeat(12, 1fr); gap:16px}
+    .card{grid-column: span 12; background:var(--card); border:1px solid var(--border); border-radius:var(--radius); box-shadow:var(--shadow)}
+    .card .header{display:flex; align-items:center; justify-content:space-between; padding:14px 16px; border-bottom:1px solid var(--border)}
+    .card .body{padding:14px 16px}
+
+    /* Review list */
+    .review-list{display:grid; grid-template-columns: repeat(2, 1fr); gap:16px}
+    .review{border:1px solid var(--border); border-radius:14px; overflow:hidden; display:flex; background:var(--card)}
+    .thumb{width:120px; background:#edfdfb; display:grid; place-items:center; border-right:1px solid var(--border)}
+    .thumb svg{opacity:.9}
+    .meta{padding:12px; flex:1}
+    .row{display:flex; align-items:center; gap:8px; flex-wrap:wrap}
+    .title{font-weight:700}
+    .small{font-size:12px; color:var(--muted)}
+    .badge{font-size:11px; padding:6px 10px; border-radius:999px; border:1px solid;}
+    .b-ok{color:var(--ok); border-color:#c6f6d5; background:#ecfdf5}
+    .b-warn{color:#b45309; border-color:#fde68a; background:#fffbeb}
+    .b-bad{color:var(--bad); border-color:#fecdd3; background:#fff1f2}
+
+    /* Tables */
+    table{width:100%; border-collapse:collapse}
+    th,td{padding:12px 10px; border-bottom:1px solid var(--border); text-align:left}
+    th{font-size:12px; color:var(--muted); text-transform:uppercase; letter-spacing:.08em}
+
+    /* Policy list */
+    .policies{display:grid; gap:12px}
+    .policy{border:1px dashed var(--border); border-radius:14px; background:var(--card); padding:14px}
+
+    /* Responsive */
+    @media (max-width: 1100px){
+      .review-list{grid-template-columns: 1fr}
+    }
+    @media (max-width: 900px){
+      .app{grid-template-columns: 88px 1fr}
+      .brand h1,.subtitle,.group-title,.nav .label{display:none}
+      .nav button{justify-content:center}
+      .nav .dot{display:none}
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <!-- ===== Sidebar ===== -->
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="logo">WD</div>
+        <div>
+          <h1>WhatDigital</h1>
+          <div class="subtitle">Internal Review</div>
+        </div>
+      </div>
+
+      <div class="group">
+        <div class="group-title">Platforms</div>
+        <div class="nav" id="platformNav">
+          <button class="active" data-platform="all" title="All platforms">
+            <span class="dot"></span> <span class="label">All</span>
+          </button>
+          <button data-platform="meta" title="Meta (Facebook/Instagram)">
+            <span class="dot"></span> <span class="label">Meta</span>
+          </button>
+          <button data-platform="google" title="Google">
+            <span class="dot"></span> <span class="label">Google</span>
+          </button>
+          <button data-platform="microsoft" title="Microsoft (Ads)">
+            <span class="dot"></span> <span class="label">Microsoft</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="group">
+        <div class="group-title">Reviews</div>
+        <div class="nav" id="sectionNav">
+          <button class="active" data-section="content">
+            <span class="dot"></span> <span class="label">Content Review</span>
+          </button>
+          <button data-section="budget">
+            <span class="dot"></span> <span class="label">Budget Review</span>
+          </button>
+          <button data-section="policies">
+            <span class="dot"></span> <span class="label">Policies</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="group">
+        <div class="group-title">Admin</div>
+        <div class="nav">
+          <button title="Settings"><span class="dot"></span> <span class="label">Settings</span></button>
+          <button title="Help"><span class="dot"></span> <span class="label">Help</span></button>
+        </div>
+      </div>
+    </aside>
+
+    <!-- ===== Content ===== -->
+    <main>
+      <div class="topbar">
+        <div class="crumb" id="crumb">All • Content Review</div>
+        <div class="actions">
+          <div class="chip">
+            <!-- simple search -->
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M21 21l-4.35-4.35M10.5 18a7.5 7.5 0 1 1 0-15 7.5 7.5 0 0 1 0 15Z" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+            <input id="search" placeholder="Search content, client, ID…" />
+          </div>
+          <button class="btn secondary" id="clearFilters">Clear</button>
+          <button class="btn">New Manual Review</button>
+        </div>
+      </div>
+
+      <div class="main">
+        <div class="section-switch" id="statusFilters">
+          <button class="pill active" data-status="all">All</button>
+          <button class="pill" data-status="pending">Pending</button>
+          <button class="pill" data-status="approved">Approved</button>
+          <button class="pill" data-status="flagged">Flagged</button>
+        </div>
+
+        <!-- ===== Content Review ===== -->
+        <section class="cards section" id="section-content">
+          <div class="card">
+            <div class="header">
+              <div class="row">
+                <strong>Incoming Items</strong>
+                <span class="small">Auto-ingested via APIs (future)</span>
+              </div>
+              <div class="row small">Showing sample data</div>
+            </div>
+            <div class="body">
+              <div class="review-list" id="reviewList">
+
+                <!-- Item 1 -->
+                <article class="review item" data-platform="meta" data-status="flagged">
+                  <div class="thumb" title="Image placeholder">
+                    <svg width="44" height="44" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M4 5h16v14H4z" fill="none" stroke="currentColor"/><path d="M4 16l4-4 3 3 4-4 5 5" fill="none" stroke="currentColor"/></svg>
+                  </div>
+                  <div class="meta">
+                    <div class="row">
+                      <span class="title">Summer Promo – 20% OFF</span>
+                      <span class="badge b-bad">Flagged • Restricted content</span>
+                    </div>
+                    <div class="row small">
+                      <span>Client: GreenLeaf</span> •
+                      <span>Platform: Meta</span> •
+                      <span>ID: MD-230194</span> •
+                      <span>Uploaded: 2025-08-14</span>
+                    </div>
+                    <div class="small">Reason: Uses the word "miracle cure" which violates Health claims policy.</div>
+                  </div>
+                </article>
+
+                <!-- Item 2 -->
+                <article class="review item" data-platform="google" data-status="pending">
+                  <div class="thumb">
+                    <svg width="44" height="44" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><circle cx="7" cy="8" r="2" stroke="currentColor" fill="none"/><path d="M3 20l5-6 4 3 4-5 5 8H3z" stroke="currentColor" fill="none"/></svg>
+                  </div>
+                  <div class="meta">
+                    <div class="row">
+                      <span class="title">Search Ad – July Brand</span>
+                      <span class="badge b-warn">Pending</span>
+                    </div>
+                    <div class="row small">
+                      <span>Client: VoltX</span> •
+                      <span>Platform: Google</span> •
+                      <span>ID: GG-993421</span> •
+                      <span>Uploaded: 2025-08-15</span>
+                    </div>
+                    <div class="small">Awaiting reviewer assignment.</div>
+                  </div>
+                </article>
+
+                <!-- Item 3 -->
+                <article class="review item" data-platform="microsoft" data-status="approved">
+                  <div class="thumb">
+                    <svg width="44" height="44" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><rect x="3" y="3" width="8" height="8" stroke="currentColor" fill="none"/><rect x="13" y="3" width="8" height="8" stroke="currentColor" fill="none"/><rect x="3" y="13" width="8" height="8" stroke="currentColor" fill="none"/><rect x="13" y="13" width="8" height="8" stroke="currentColor" fill="none"/></svg>
+                  </div>
+                  <div class="meta">
+                    <div class="row">
+                      <span class="title">Responsive Ads – Autumn</span>
+                      <span class="badge b-ok">Approved</span>
+                    </div>
+                    <div class="row small">
+                      <span>Client: Kelvin</span> •
+                      <span>Platform: Microsoft</span> •
+                      <span>ID: MS-552901</span> •
+                      <span>Uploaded: 2025-08-12</span>
+                    </div>
+                    <div class="small">No issues detected.</div>
+                  </div>
+                </article>
+
+                <!-- Item 4 -->
+                <article class="review item" data-platform="meta" data-status="pending">
+                  <div class="thumb">
+                    <svg width="44" height="44" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M4 5h16v14H4z" fill="none" stroke="currentColor"/><path d="M4 16l4-4 3 3 4-4 5 5" fill="none" stroke="currentColor"/></svg>
+                  </div>
+                  <div class="meta">
+                    <div class="row">
+                      <span class="title">UGC Video – Fitness App</span>
+                      <span class="badge b-warn">Pending</span>
+                    </div>
+                    <div class="row small">
+                      <span>Client: FitNow</span> •
+                      <span>Platform: Meta</span> •
+                      <span>ID: MD-230451</span> •
+                      <span>Uploaded: 2025-08-15</span>
+                    </div>
+                    <div class="small">Queued for automatic checks.</div>
+                  </div>
+                </article>
+
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ===== Budget Review ===== -->
+        <section class="cards section" id="section-budget" style="display:none">
+          <div class="card">
+            <div class="header"><strong>Budget Overview</strong><span class="small">Sample data</span></div>
+            <div class="body">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Client</th>
+                    <th>Platform</th>
+                    <th>Monthly Budget</th>
+                    <th>Spent</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>GreenLeaf</td>
+                    <td>Meta</td>
+                    <td>€8,000</td>
+                    <td>€6,450</td>
+                    <td><span class="badge b-warn">84% used</span></td>
+                  </tr>
+                  <tr>
+                    <td>VoltX</td>
+                    <td>Google</td>
+                    <td>€12,000</td>
+                    <td>€12,100</td>
+                    <td><span class="badge b-bad">Exceeded</span></td>
+                  </tr>
+                  <tr>
+                    <td>Kelvin</td>
+                    <td>Microsoft</td>
+                    <td>€5,000</td>
+                    <td>€3,900</td>
+                    <td><span class="badge b-ok">On Track</span></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- ===== Policies ===== -->
+        <section class="cards section" id="section-policies" style="display:none">
+          <div class="card">
+            <div class="header"><strong>Policy Center</strong><span class="small">Quick refs (sample)</span></div>
+            <div class="body">
+              <div class="policies">
+                <div class="policy">
+                  <strong>Meta – Misleading Claims</strong>
+                  <p class="small">Avoid absolute guarantees (e.g., “miracle cure”, “guaranteed results”). Use substantiated, non-deceptive wording.</p>
+                </div>
+                <div class="policy">
+                  <strong>Google – Destination Requirements</strong>
+                  <p class="small">Ensure landing pages are accessible, fast, and contain clear business information & policies (refunds, contact).</p>
+                </div>
+                <div class="policy">
+                  <strong>Microsoft – Prohibited Content</strong>
+                  <p class="small">No counterfeit goods, illegal products, or dangerous services. Comply with regional regulations.</p>
+                </div>
+                <div class="policy">
+                  <strong>All – Sensitive Categories</strong>
+                  <p class="small">Handle health, financial, and personal attributes with extra caution. Provide disclaimers and avoid targeting that could be deemed discriminatory.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+      </div>
+    </main>
+  </div>
+
+  <script>
+    // ===== Simple state management =====
+    const platformNav = document.getElementById('platformNav');
+    const sectionNav  = document.getElementById('sectionNav');
+    const reviewList  = document.getElementById('reviewList');
+    const crumb       = document.getElementById('crumb');
+    const searchInput = document.getElementById('search');
+    const clearBtn    = document.getElementById('clearFilters');
+
+    let currentPlatform = 'all';
+    let currentSection  = 'content';
+    let currentStatus   = 'all';
+
+    function setActive(container, button){
+      container.querySelectorAll('button').forEach(b=>b.classList.remove('active'));
+      button.classList.add('active');
+    }
+
+    function updateCrumb(){
+      const p = currentPlatform[0].toUpperCase()+currentPlatform.slice(1);
+      const s = currentSection[0].toUpperCase()+currentSection.slice(1);
+      crumb.textContent = `${p} • ${s} Review`;
+    }
+
+    function filterItems(){
+      // handle sections display
+      document.querySelectorAll('.section').forEach(sec=>sec.style.display='none');
+      document.getElementById(`section-${currentSection}`).style.display='grid';
+
+      // only for content section we filter individual items
+      if(currentSection !== 'content') return;
+
+      const query = searchInput.value.toLowerCase();
+      document.querySelectorAll('.item').forEach(el=>{
+        const plat = el.getAttribute('data-platform');
+        const stat = el.getAttribute('data-status');
+        const text = el.innerText.toLowerCase();
+
+        const matchPlatform = (currentPlatform==='all' || plat===currentPlatform);
+        const matchStatus   = (currentStatus==='all' || stat===currentStatus);
+        const matchQuery    = (!query || text.includes(query));
+        el.style.display = (matchPlatform && matchStatus && matchQuery) ? 'flex' : 'none';
+      })
+    }
+
+    // Platform nav
+    platformNav.addEventListener('click', (e)=>{
+      const btn = e.target.closest('button[data-platform]');
+      if(!btn) return;
+      currentPlatform = btn.dataset.platform;
+      setActive(platformNav, btn);
+      updateCrumb();
+      filterItems();
+    });
+
+    // Section nav
+    sectionNav.addEventListener('click', (e)=>{
+      const btn = e.target.closest('button[data-section]');
+      if(!btn) return;
+      currentSection = btn.dataset.section;
+      setActive(sectionNav, btn);
+      updateCrumb();
+      filterItems();
+    });
+
+    // Status pills
+    const statusFilters = document.getElementById('statusFilters');
+    statusFilters.addEventListener('click', (e)=>{
+      const btn = e.target.closest('button[data-status]');
+      if(!btn) return;
+      statusFilters.querySelectorAll('.pill').forEach(p=>p.classList.remove('active'));
+      btn.classList.add('active');
+      currentStatus = btn.dataset.status;
+      filterItems();
+    });
+
+    // Search
+    searchInput.addEventListener('input', filterItems);
+
+    // Clear
+    clearBtn.addEventListener('click', ()=>{
+      // reset all
+      currentPlatform='all'; currentSection='content'; currentStatus='all';
+      searchInput.value='';
+      setActive(platformNav, platformNav.querySelector('button[data-platform="all"]'));
+      setActive(sectionNav, sectionNav.querySelector('button[data-section="content"]'));
+      statusFilters.querySelectorAll('.pill').forEach(p=>p.classList.remove('active'));
+      statusFilters.querySelector('[data-status="all"]').classList.add('active');
+      updateCrumb();
+      filterItems();
+    });
+
+    // Initialize
+    updateCrumb();
+    filterItems();
+  </script>
+</body>
+</html>
